@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: localtest
+Version: 0.1.0
+Summary: Local network speed analyzer and many more system analyzation tools.
+Author: Sabio Tang
+Requires-Python: >=3.8

@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+localtest/__init__.py
+localtest/cli.py
+localtest.egg-info/PKG-INFO
+localtest.egg-info/SOURCES.txt
+localtest.egg-info/dependency_links.txt
+localtest.egg-info/entry_points.txt
+localtest.egg-info/top_level.txt
