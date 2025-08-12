@@ -2,6 +2,16 @@ import sys
 import time
 import threading
 import speedtest
+import os
+import json
+
+HISTORY_FILE = "network_history.json"
+SETTINGS_FILE = "network_settings.json"
+
+DEFAULT_SETTINGS = {
+    "threads_quick": 2,
+    "threads_full": 16
+}
 
 BANNER = r"""
  _       _____   _____   _____   _     
@@ -37,6 +47,27 @@ FLAGS_TEXT = """
 """
 
 HELP_TEXT = COMMANDS_TEXT + FLAGS_TEXT
+
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_history(history):
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f, indent=2)
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, "r") as f:
+            return json.load(f)
+    save_settings(DEFAULT_SETTINGS)
+    return DEFAULT_SETTINGS
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
 
 def show_banner():
     print(BANNER)
@@ -93,7 +124,7 @@ def run_speed_test(full_scan=False):
         print("\nBest server found!\n")
 
         if full_scan:
-            print("Full scan enabled: your experience will be more precise.\n")
+            print("Full scan enabled: your scan will be more precise.\n")
             st.get_servers([])
             st.get_best_server()
             st._threads = 16
@@ -126,6 +157,17 @@ def run_speed_test(full_scan=False):
         print(f"Download: {download_mbps:.2f} Mbps")
         print(f"Upload: {upload_mbps:.2f} Mbps\n")
 
+        history = load_history()
+        history.append({
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "full_scan": full_scan,
+            "isp": isp,
+            "ping": round(ping, 2),
+            "download_mbps": round(download_mbps, 2),
+            "upload_mbps": round(upload_mbps, 2)
+        })
+        save_history(history)
+
     except Exception as e:
         print(f"Error during speed test: {e}")
 
@@ -135,9 +177,8 @@ def main():
     if not args:
         show_banner()
         show_help()
-        return
-    
-    if args[0] == "help":
+        return 
+    elif args[0] == "help":
         if len(args) == 1:
             show_help()
             return
@@ -150,8 +191,7 @@ def main():
         else:
             print(f"Unknown help subcommand: {args[1]}")
             return
-
-    if args[0] == "network":
+    elif args[0] == "network":
         if len(args) == 1:
             print("ᯤ  Network Tool  ᯤ")
             print("localtest network run       |  Run the network analyzer")
@@ -159,11 +199,40 @@ def main():
             print("                  settings  |  Shows all the settings you can change for the Network tool.")
             return
         elif args[1] == "run":
-            full_scan = "-f" in args or "--full" in args
+            full_scan = "-fs" in args or "--fullscan" in args
             run_speed_test(full_scan=full_scan)
+            return
+        elif args[1] == "history":
+            history = load_history()
+            if not history:
+                print("No history found. Start Localhosting by using the command 'localtest network run'!")
+            else:
+                for entry in history:
+                    print(f"[{entry['timestamp']}] "
+                          f"{'FULL' if entry['full_scan'] else 'QUICK'} | "
+                          f"ISP: {entry['isp']} | Ping: {entry['ping']} ms | "
+                          f"↓ {entry['download_mbps']} Mbps | ↑ {entry['upload_mbps']} Mbps")
+                return
+            return
+        elif args[1] == "settings":
+            settings = load_settings()
+            if len(args) == 2:
+                print("Current settings:")
+                for k, v in settings.items():
+                    print(f"  {k}: {v}")
+            elif len(args) == 4 and args[2] == "set":
+                key, value = args[3].split("=")
+                if key in settings:
+                    settings[key] = int(value)
+                    save_settings(settings)
+                    print(f"Setting '{key}' updated to {value}.")
+                else:
+                    print(f"Unknown setting: {key}")
+            else:
+                print("Usage:\n  localtest network settings\n  localtest network settings set threads_quick=4")
             return
         else:
             print(f"Unknown network subcommand: {args[1]}")
             return
     
-    print(f"Unknwon command: {args[0]}")
+    print(f"Unknown command: {args[0]}")
