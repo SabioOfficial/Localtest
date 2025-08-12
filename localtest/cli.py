@@ -102,7 +102,7 @@ def spinner(text, stop_event):
         sys.stdout.write(f"\r{text} {next(spinner_cycle)}")
         sys.stdout.flush()
         time.sleep(0.1)
-    sys.stdout.write("\r" + " " * (len(text) + 2) + "\r")
+    sys.stdout.write("\r" + "    " * (len(text) + 2) + "\r")
 
 # runs speed test :shocked:
 def run_speed_test(full_scan=False):
