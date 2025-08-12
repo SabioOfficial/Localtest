@@ -4,6 +4,7 @@ import threading
 import speedtest
 import os
 import json
+import itertools
 
 HISTORY_FILE = "network_history.json"
 SETTINGS_FILE = "network_settings.json"
@@ -89,30 +90,19 @@ def show_commands():
 def show_flags():
     print(FLAGS_TEXT)
 
-# animated dots r cool !! unlike you (/j)
-def animated_dots(text, stop_event):
-    dots = ""
-    while not stop_event.is_set():
-        dots += "."
-        if len(dots) > 3:
-            dots = "."
-        sys.stdout.write(f"\r{text}{dots}    ")
-        sys.stdout.flush()
-        time.sleep(0.4)
-    sys.stdout.write("\r" + text + "... Done!\n")
+def show_network_header(): # holy shit styling no way :shocked:
+    print("\n\033[1;34m╔══════════════════════════════╗\033[0m")
+    print("\033[1;34m║\033[0m      \033[1;36mᯤ  Network Tool  ᯤ\033[0m      \033[1;34m║\033[0m")
+    print("\033[1;34m╚══════════════════════════════╝\033[0m\n")
 
-# resuable loading bar?! :skulley: (ITS FAKE OMG)
-def loading_bar(task, duration=3, length=20):
-    print(f"{task}")
-    for i in range(length + 1):
-        percent = int((i / length) * 100)
-        filled = "█"
-        empty = "░" * (length - i)
-        bar = f"[{filled}{empty}] {percent:3d}%"
-        sys.stdout.write("\r" + bar + ' ' * 10)
+# next gen animated dots
+def spinner(text, stop_event):
+    spinner_cycle = itertools.cycle(['|', '/', '-', '\\'])
+    while not stop_event.is_set():
+        sys.stdout.write(f"\r{text} {next(spinner_cycle)}")
         sys.stdout.flush()
-        time.sleep(duration / (length * 2))
-    print("")
+        time.sleep(0.1)
+    sys.stdout.write("\r" + " " * (len(text) + 2) + "\r")
 
 # runs speed test :shocked:
 def run_speed_test(full_scan=False):
@@ -120,7 +110,7 @@ def run_speed_test(full_scan=False):
 
     try:
         stop_event = threading.Event()
-        thread = threading.Thread(target=animated_dots, args=("Finding best server", stop_event))
+        thread = threading.Thread(target=spinner, args=("Finding best server", stop_event))
         thread.start()
 
         st = speedtest.Speedtest()
@@ -128,8 +118,6 @@ def run_speed_test(full_scan=False):
 
         stop_event.set()
         thread.join()
-
-        print("\nBest server found!\n")
 
         settings = load_settings()
         if full_scan:
@@ -141,14 +129,14 @@ def run_speed_test(full_scan=False):
             st._threads = settings.get("threads_quick", 2)
 
         stop_download = threading.Event()
-        download_thread = threading.Thread(target=animated_dots, args=("Testing ↓ download speed", stop_download))
+        download_thread = threading.Thread(target=spinner, args=("Testing ↓ download speed", stop_download))
         download_thread.start()
         st.download()
         stop_download.set()
         download_thread.join()
 
         stop_upload = threading.Event()
-        upload_thread = threading.Thread(target=animated_dots, args=("Testing ↑ upload speed", stop_upload))
+        upload_thread = threading.Thread(target=spinner, args=("Testing ↑ upload speed", stop_upload))
         upload_thread.start()
         st.upload()
         stop_upload.set()
@@ -202,10 +190,11 @@ def main():
             return
     elif args[0] == "network":
         if len(args) == 1:
-            print("ᯤ  Network Tool  ᯤ")
-            print("localtest network run       |  Run the network analyzer")
-            print("                  history   |  Shows the history of all your network scans. ")
-            print("                  settings  |  Shows all the settings you can change for the Network tool.")
+            show_network_header()
+            print("\033[1;33mlocaltest network\033[0m")
+            print("    \033[90mrun\033[0m Runs the network scan. -fs is compatiable.")
+            print("    \033[90mhistory\033[0m Shows the history of all your scans, locally.")
+            print("    \033[90msettings\033[0m View or change settings for the Network tool.")
             return
         elif args[1] == "run":
             full_scan = "-fs" in args or "--fullscan" in args
