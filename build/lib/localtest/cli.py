@@ -14,35 +14,44 @@ DEFAULT_SETTINGS = {
 }
 
 BANNER = r"""
- _       _____   _____   _____   _     
-| |     |  _  | |  ___| |  _  | | |    
-| |     | | | | | |     | |_| | | |    
-| |___  | |_| | | |___  |  _  | | |___ 
-|_____| |_____| |_____| |_/ \_| |_____| 
+ __                               ___    __                   __      
+/\ \                             /\_ \  /\ \__               /\ \__   
+\ \ \        ___     ___     __  \//\ \ \ \ ,_\    __    ____\ \ ,_\  
+ \ \ \  __  / __`\  /'___\ /'__`\  \ \ \ \ \ \/  /'__`\ /',__\\ \ \/  
+  \ \ \L\ \/\ \L\ \/\ \__//\ \L\.\_ \_\ \_\ \ \_/\  __//\__, `\\ \ \_ 
+   \ \____/\ \____/\ \____\ \__/.\_\/\____\\ \__\ \____\/\____/ \ \__\
+    \/___/  \/___/  \/____/\/__/\/_/\/____/ \/__/\/____/\/___/   \/__/
+                                                                      
+                                                                      
+   _          __                                                      
+ /' \       /'__`\                                                    
+/\_, \     /\ \/\ \                                                   
+\/_/\ \    \ \ \ \ \                                                  
+   \ \ \  __\ \ \_\ \                                                 
+    \ \_\/\_\\ \____/                                                 
+     \/_/\/_/ \/___/                                                  
 
- _____   _____   _____   _____   
-|_   _| |  ___| | ____| |_   _|  
-  | |   | |__   |___  |   | |    
-  | |   | |___   ___| |   | |    
-  |_|   |_____| |_____|   |_|    v0.1
 """
 
 COMMANDS_TEXT = """
->>  COMMANDS  <<
+\033[1;36m>> COMMANDS <<\033[0m
 
-localtest help              |  Shows the complete list of available commands and flags.
-               commands     |  Shows all commands.
-               flags        |  Shows all flags.
-localtest network           |  Shows the list of commands and flags available for the Network tool.
-                  run       |  Run the network analyzer.
-                  history   |  Shows the history of all your network scans.
-                  settings  |  Shows all the settings you can change for the Network tool.
+\033[1;33mlocaltest\033[0m
+
+\033[1;33mlocaltest help\033[0m
+    \033[90mcommands\033[0m Shows all commands.
+    \033[90mflags\033[0m Shows all flags.
+
+\033[1;33mlocaltest network\033[0m
+    \033[90mrun\033[0m Runs the network scan. -fs is compatiable.
+    \033[90mhistory\033[0m Shows the history of all your scans, locally.
+    \033[90msettings\033[0m View or change settings for the Network tool.
 """
 
 FLAGS_TEXT = """
->>  FLAGS  <<
+\033[1;36m>> FLAGS <<\033[0m
 
--fs  |  Fully and precisely use the tool.
+\033[1;33m-fs\033[0m Fully and precisely use the current tool. Compatiable with: Network.
 
 """
 
@@ -123,13 +132,14 @@ def run_speed_test(full_scan=False):
 
         print("\nBest server found!\n")
 
+        settings = load_settings()
         if full_scan:
             print("Full scan enabled: your scan will be more precise.\n")
             st.get_servers([])
             st.get_best_server()
-            st._threads = 16
+            st._threads = settings.get("threads_full", 16)
         else:
-            st._threads = 2
+            st._threads = settings.get("threads_quick", 2)
 
         stop_download = threading.Event()
         download_thread = threading.Thread(target=animated_dots, args=("Testing ↓ download speed", stop_download))
@@ -176,7 +186,7 @@ def main():
 
     if not args:
         show_banner()
-        show_help()
+        print("it looks like this is your first time here- use the command \033[1;33mlocaltest help\033[0m to get started!")
         return 
     elif args[0] == "help":
         if len(args) == 1:
