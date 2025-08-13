@@ -5,6 +5,7 @@ import speedtest
 import os
 import json
 import itertools
+import signal
 
 HISTORY_FILE = "network_history.json"
 SETTINGS_FILE = "network_settings.json"
@@ -13,6 +14,8 @@ DEFAULT_SETTINGS = {
     "threads_quick": 2,
     "threads_full": 16
 }
+
+active_stop_events = []
 
 BANNER = r"""
  __                               ___    __                   __      
@@ -77,6 +80,12 @@ def load_settings():
 def save_settings(settings):
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=2)
+
+def handle_exit(signum, frame):
+    print("\n\033[1;31m[!] Process interrupted by user. Exiting...\033[0m")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, handle_exit)
 
 def show_banner():
     print(BANNER)
