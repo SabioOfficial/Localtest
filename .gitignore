@@ -2,3 +2,4 @@ __pycache__
 network_history.json
 network_settings.json
 build
+dist
