@@ -9,7 +9,9 @@ description = "A home to locally running tests such as testing your network spee
 authors = [
     { name = "Sabio Tang" }
 ]
-dependencies = []
+dependencies = [
+    "speedtest-cli"
+]
 requires-python = ">=3.8"
 
 [project.scripts]
