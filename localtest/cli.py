@@ -95,14 +95,14 @@ def show_network_header(): # holy shit styling no way :shocked:
     print("\033[1;34m║\033[0m      \033[1;36mᯤ  Network Tool  ᯤ\033[0m      \033[1;34m║\033[0m")
     print("\033[1;34m╚══════════════════════════════╝\033[0m\n")
 
-# next gen animated dots
+# next gen animated dots :heavysob-random:
 def spinner(text, stop_event):
     spinner_cycle = itertools.cycle(['|', '/', '-', '\\'])
     while not stop_event.is_set():
         sys.stdout.write(f"\r{text} {next(spinner_cycle)}")
         sys.stdout.flush()
         time.sleep(0.1)
-    sys.stdout.write("\r" + "    " * (len(text) + 2) + "\r")
+    sys.stdout.write("\r" + " " * (len(text) + 2) + "\r")
 
 # runs speed test :shocked:
 def run_speed_test(full_scan=False):
@@ -121,7 +121,7 @@ def run_speed_test(full_scan=False):
 
         settings = load_settings()
         if full_scan:
-            print("Full scan enabled: your scan will be more precise.\n")
+            print("Full scan is enabled!\n")
             st.get_servers([])
             st.get_best_server()
             st._threads = settings.get("threads_full", 16)
@@ -148,11 +148,11 @@ def run_speed_test(full_scan=False):
         ping = results['ping']
         isp = results.get('client', {}).get('isp', 'Unknown ISP')
 
-        print("\n--- Speed Test Results ---")
-        print(f"ISP: {isp}")
-        print(f"Ping: {ping:.2f} ms")
-        print(f"Download: {download_mbps:.2f} Mbps")
-        print(f"Upload: {upload_mbps:.2f} Mbps\n")
+        print("\n\033[1;32m--- Speed Test Results ---\033[0m")
+        print(f"\033[1;33mISP:\033[0m {isp}")
+        print(f"\033[1;33mPing:\033[0m {ping:.2f} ms")
+        print(f"\033[1;33mDownload:\033[0m {download_mbps:.2f} Mbps")
+        print(f"\033[1;33mUpload:\033[0m {upload_mbps:.2f} Mbps\n")
 
         history = load_history()
         history.append({
@@ -164,7 +164,6 @@ def run_speed_test(full_scan=False):
             "upload_mbps": round(upload_mbps, 2)
         })
         save_history(history)
-
     except Exception as e:
         print(f"Error during speed test: {e}")
 
@@ -173,7 +172,7 @@ def main():
 
     if not args:
         show_banner()
-        print("it looks like this is your first time here- use the command \033[1;33mlocaltest help\033[0m to get started!")
+        print("use \033[1;33mlocaltest help\033[0m to get started!")
         return 
     elif args[0] == "help":
         if len(args) == 1:

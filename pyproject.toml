@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "localtest"
-version = "0.1.0"
+version = "1.0.0"
 description = "Local network speed analyzer and many more system analyzation tools."
 authors = [
     { name = "Sabio Tang" }
