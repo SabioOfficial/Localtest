@@ -22,6 +22,14 @@ if os.name == "nt":
     kernel32.GetConsoleMode(handle, ctypes.byref(mode))
     kernel32.SetConsoleMode(handle, mode.value | 0x0004)
 
+def cprint(text):
+    settings = load_settings()
+    if settings.get("colors", True):
+        print(text)
+    else:
+        ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
+        print(ansi_escape.sub('', text))
+
 HISTORY_FILE = "network_history.json"
 SETTINGS_FILE = "network_settings.json"
 
@@ -31,7 +39,6 @@ DEFAULT_SETTINGS = {
     "ping_test_host": "8.8.8.8",
     "ping_count": 4,
     "colors": True,
-    "reset_network_on_fail": True
 }
 
 active_stop_events = []
@@ -99,10 +106,15 @@ def load_settings():
             try:
                 user_settings = json.load(f)
             except json.JSONDecodeError:
-                print("[WARN] Corrupted settings file. Restoring defaults.")
+                cprint("[WARN] Corrupted settings file. Restoring defaults.")
                 user_settings = {}
         
         updated = False
+        keys_to_remove = [key for key in user_settings if key not in DEFAULT_SETTINGS]
+        for key in keys_to_remove:
+            del user_settings[key]
+            updated = True
+
         for key, default_value in DEFAULT_SETTINGS.items():
             if key not in user_settings:
                 user_settings[key] = default_value
@@ -119,30 +131,30 @@ def load_settings():
 def save_settings(settings):
     merged = {**DEFAULT_SETTINGS, **settings}
     with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings, f, indent=2)
+        json.dump(merged, f, indent=2)
 
 def handle_exit(signum, frame):
-    print("\n\033[1;31m[!] Process interrupted by user. Exiting...\033[0m")
+    cprint("\n\033[1;31m[!] Process interrupted by user. Exiting...\033[0m")
     sys.exit(0)
 
 signal.signal(signal.SIGINT, handle_exit)
 
 def show_banner():
-    print(BANNER)
+    cprint(BANNER)
 
 def show_help():
-    print(HELP_TEXT)
+    cprint(HELP_TEXT)
 
 def show_commands():
-    print(COMMANDS_TEXT)
+    cprint(COMMANDS_TEXT)
 
 def show_flags():
-    print(FLAGS_TEXT)
+    cprint(FLAGS_TEXT)
 
 def show_network_header(): # holy shit styling no way :shocked:
-    print("\n\033[1;34m╔══════════════════════════════╗\033[0m")
-    print("\033[1;34m║\033[0m      \033[1;36mᯤ  Network Tool  ᯤ\033[0m      \033[1;34m║\033[0m")
-    print("\033[1;34m╚══════════════════════════════╝\033[0m\n")
+    cprint("\n\033[1;34m╔══════════════════════════════╗\033[0m")
+    cprint("\033[1;34m║\033[0m      \033[1;36mᯤ  Network Tool  ᯤ\033[0m      \033[1;34m║\033[0m")
+    cprint("\033[1;34m╚══════════════════════════════╝\033[0m\n")
 
 # next gen animated dots :heavysob-random:
 def spinner(text, stop_event):
@@ -162,7 +174,7 @@ def mask_ip(ip):
 
 # runs speed test :shocked:
 def run_speed_test(full_scan=False):
-    print(f"Starting {'full' if full_scan else 'quick'} network speed test...\n")
+    cprint(f"Starting {'full' if full_scan else 'quick'} network speed test...\n")
     st = speedtest.Speedtest()
     stop_event = threading.Event()
     spinner_thread = threading.Thread(target=spinner, args=("Finding best server", stop_event))
@@ -213,11 +225,11 @@ def run_speed_test(full_scan=False):
     ping = results['ping']
     isp = results.get('client', {}).get('isp', 'Unknown ISP')
 
-    print("\n\033[1;32m--- Speed Test Results ---\033[0m")
-    print(f"\033[1;33mISP:\033[0m {isp}")
-    print(f"\033[1;33mPing:\033[0m {ping:.2f} ms")
-    print(f"\033[1;33mDownload:\033[0m {download_mbps:.2f} Mbps")
-    print(f"\033[1;33mUpload:\033[0m {upload_mbps:.2f} Mbps\n")
+    cprint("\n\033[1;32m--- Speed Test Results ---\033[0m")
+    cprint(f"\033[1;33mISP:\033[0m {isp}")
+    cprint(f"\033[1;33mPing:\033[0m {ping:.2f} ms")
+    cprint(f"\033[1;33mDownload:\033[0m {download_mbps:.2f} Mbps")
+    cprint(f"\033[1;33mUpload:\033[0m {upload_mbps:.2f} Mbps\n")
 
     entry = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -235,6 +247,10 @@ def run_speed_test(full_scan=False):
     return entry
 
 def run_ping(host="8.8.8.8", count=4): # oh no google's going to googsteale your data
+    settings = load_settings()
+    host = settings.get("ping_test_host", "8.8.8.8")
+    count = settings.get("ping_count", 4)
+
     os_name = platform.system().lower()
     if os_name == "windows":
         cmd = ["ping", "-n", str(count), host]
@@ -368,15 +384,15 @@ def build_fix_commands():
         commands = [
             ("Flush DNS (systemd-resolved)", "sudo systemd-resolve --flush-caches"),
             ("Restart NetworkManager (Linux)", "sudo systemctl restart NetworkManager"),
-            ("Restart network interface (Linux) - may vary", "sudo ip link set $(ip route get 8.8.8.8 | awk '{print $5; exit}') down; sleep 1; sudo ip link set $(ip route get 8.8.8.8 | awk '{print $5; exit}') up"),
+            ("Restart network interface (Linux) - may vary", "sudo ip link set $(ip route get 8.8.8.8 | awk '{cprint $5; exit}') down; sleep 1; sudo ip link set $(ip route get 8.8.8.8 | awk 'cprintt $5; exit}') up"),
         ]
     return commands
 
 def improve_network(apply=False):
-    print("\n\033[1;34m--- Running network improve diagnostic ---\033[0m\n")
+    cprint("\n\033[1;34m--- Running network improve diagnostic ---\033[0m\n")
     baseline = run_speed_test(full_scan=False)
     if not baseline:
-        print("Couldn't get baseline speed test; aborting improve routine.")
+        cprint("Couldn't get baseline speed test; aborting improve routine.")
         return
     
     ping_results = run_ping()
@@ -395,58 +411,58 @@ def improve_network(apply=False):
         metrics["packet_loss_percent"] = ping_results.get("packet_loss_percent")
         metrics["ping"] = ping_results.get("avg_ms") or metrics["ping"]
 
-    print("\033[1;32m--- Diagnostics ---\033[0m")
-    print(f"ISP: {metrics.get('isp')}")
-    print(f"Download: {metrics.get('download_mbps'):.2f} Mbps")
-    print(f"Upload: {metrics.get('upload_mbps'):.2f} Mbps")
+    cprint("\033[1;32m--- Diagnostics ---\033[0m")
+    cprint(f"ISP: {metrics.get('isp')}")
+    cprint(f"Download: {metrics.get('download_mbps'):.2f} Mbps")
+    cprint(f"Upload: {metrics.get('upload_mbps'):.2f} Mbps")
     if metrics.get("ping") is not None:
-        print(f"Ping (avg): {metrics.get('ping'):.2f} ms")
+        cprint(f"Ping (avg): {metrics.get('ping'):.2f} ms")
     if metrics.get("packet_loss_percent") is not None:
-        print(f"Packet loss: {metrics.get('packet_loss_percent')}%")
+        cprint(f"Packet loss: {metrics.get('packet_loss_percent')}%")
     if dns_servers:
-        print(f"DNS servers: {', '.join(masked_dns)}")
+        cprint(f"DNS servers: {', '.join(masked_dns)}")
     else:
-        print("DNS servers: Could not detect")
+        cprint("DNS servers: Could not detect")
     
-    print("\n\033[1;32m--- Suggestions to improve speeds ---\033[0m")
+    cprint("\n\033[1;32m--- Suggestions to improve speeds ---\033[0m")
     suggestions = build_suggestions(metrics)
     for s in suggestions:
-        print(f"- {s}")
+        cprint(f"- {s}")
 
     if apply:
-        print("\n\033[1;33mApply mode requested. The script will attempt common fixes (may require admin/sudo).\033[0m")
+        cprint("\n\033[1;33mApply mode requested. The script will attempt common fixes (may require admin/sudo).\033[0m")
         fixes = build_fix_commands()
-        print("Planned actions:")
+        cprint("Planned actions:")
         for i, (desc, cmd) in enumerate(fixes, start=1):
-            print(f"  {i}. {desc} -> {cmd}")
+            cprint(f"  {i}. {desc} -> {cmd}")
 
         confirm = input("\nProceed to run the above commands? This may temporarily disconnect your network. [y/N]: ").strip().lower()
         if confirm != "y":
-            print("Aborting apply actions.")
+            cprint("Aborting apply actions.")
             return
         
         for desc, cmd in fixes:
-            print(f"\n\033[1;34mRunning:\033[0m {desc}\n-> {cmd}")
+            cprint(f"\n\033[1;34mRunning:\033[0m {desc}\n-> {cmd}")
             try:
                 p = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
                 if p.returncode == 0:
-                    print(f"[OK] {desc} completed.")
+                    cprint(f"[OK] {desc} completed.")
                     if p.stdout:
-                        print(p.stdout.strip())
+                        cprint(p.stdout.strip())
                 else:
-                    print(f"[WARN] {desc} returned non-zero exit code {p.returncode}.")
+                    cprint(f"[WARN] {desc} returned non-zero exit code {p.returncode}.")
                     if p.stdout:
-                        print("STDOUT:", p.stdout.strip())
+                        cprint("STDOUT:", p.stdout.strip())
                     if p.stderr:
-                        print("STDERR:", p.stderr.strip())
+                        cprint("STDERR:", p.stderr.strip())
             except Exception as e:
-                print(f"[ERROR] Failed to run {desc}: {e}")
+                cprint(f"[ERROR] Failed to run {desc}: {e}")
 
-        print("\n\033[1;32mApply actions completed. Re-running a quick speed test to show updated results...\033[0m")
+        cprint("\n\033[1;32mApply actions completed. Re-running a quick speed test to show updated results...\033[0m")
         time.sleep(2)
         run_speed_test(full_scan=False)
     else:
-        print("\nTo automatically try common fixes, re-run with the flag \033[1;33m-a\033[0m or \033[1;33m--apply\033[0m (you will be asked to confirm before any changes).")
+        cprint("\nTo automatically try common fixes, re-run with the flag \033[1;33m-a\033[0m or \033[1;33m--apply\033[0m (you will be asked to confirm before any changes).")
 
 def check_latest_version(package="localtest"):
     try:
@@ -459,7 +475,7 @@ def check_latest_version(package="localtest"):
         latest_version = max(releases, key=parse)
         return latest_version
     except Exception as e:
-        print(f"[WARN] Could not fetch latest version from PyPI: {e}")
+        cprint(f"[WARN] Could not fetch latest version from PyPI: {e}")
         return None
 
 def get_installed_version(package="localtest"):
@@ -469,43 +485,43 @@ def get_installed_version(package="localtest"):
         return None
 
 def update():
-    print("--- Checking for updates ---\n")
+    cprint("--- Checking for updates ---\n")
     installed = get_installed_version("localtest")
     latest = check_latest_version("localtest")
 
     if not installed:
-        print("[ERROR] Localtest is not installed.")
+        cprint("[ERROR] Localtest is not installed.")
         return
 
-    print(f"Installed version: {installed}")
+    cprint(f"Installed version: {installed}")
     if latest:
-        print(f"Latest version on PyPI: {latest}")
+        cprint(f"Latest version on PyPI: {latest}")
     else:
-        print("Could not determine the latest version.")
+        cprint("Could not determine the latest version.")
         latest = installed
 
     if parse_version(installed) > parse_version(latest):
-        print(f"\n[OK] You have a more advanced version than the latest public version ({latest}). No update needed.")
+        cprint(f"\n[OK] You have a more advanced version than the latest public version ({latest}). No update needed.")
         return
 
     if parse_version(installed) == parse_version(latest):
-        print(f"\n[OK] You already have the latest version ({installed}). No update needed.")
+        cprint(f"\n[OK] You already have the latest version ({installed}). No update needed.")
         return
 
-    print("\n--- Updating Localtest ---\n")
+    cprint("\n--- Updating Localtest ---\n")
     try:
         cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "localtest"]
         subprocess.run(cmd, check=True)
-        print("\n[OK] Localtest updated successfully!")
+        cprint("\n[OK] Localtest updated successfully!")
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Update failed: {e}")
+        cprint(f"[ERROR] Update failed: {e}")
 
 def main():
     args = sys.argv[1:]
 
     if not args:
         show_banner()
-        print("use \033[1;33mlocaltest help\033[0m to get started!")
+        cprint("use \033[1;33mlocaltest help\033[0m to get started!")
         return
     elif args[0] == "help":
         if len(args) == 1:
@@ -518,7 +534,7 @@ def main():
             show_flags()
             return
         else:
-            print(f"Unknown help subcommand: {args[1]}")
+            cprint(f"Unknown help subcommand: {args[1]}")
             return
     elif args[0] == "update":
         update()
@@ -526,10 +542,11 @@ def main():
     elif args[0] == "network":
         if len(args) == 1:
             show_network_header()
-            print("\033[1;33mlocaltest network\033[0m")
-            print("    \033[90mrun\033[0m Runs the network scan. -fs is compatiable.")
-            print("    \033[90mhistory\033[0m Shows the history of all your scans, locally.")
-            print("    \033[90msettings\033[0m View or change settings for the Network tool.")
+            cprint("\033[1;33mlocaltest network\033[0m")
+            cprint("    \033[90mrun\033[0m Runs the network scan. -fs is compatiable.")
+            cprint("    \033[90mhistory\033[0m Shows the history of all your scans, locally.")
+            cprint("    \033[90msettings\033[0m View or change settings for the Network tool.")
+            cprint("    \033[90mimprove\033[0m Running this command will improve your network speeds. -a is compatiable.")
             return
         elif args[1] == "run":
             full_scan = "-fs" in args or "--fullscan" in args
@@ -538,10 +555,10 @@ def main():
         elif args[1] == "history":
             history = load_history()
             if not history:
-                print("No history found. Start Localhosting by using the command 'localtest network run'!")
+                cprint("No history found. Start Localhosting by using the command 'localtest network run'!")
             else:
                 for entry in history:
-                    print(f"[{entry['timestamp']}] "
+                    cprint(f"[{entry['timestamp']}] "
                           f"{'FULL' if entry['full_scan'] else 'QUICK'} | "
                           f"ISP: {entry['isp']} | Ping: {entry['ping']} ms | "
                           f"↓ {entry['download_mbps']} Mbps | ↑ {entry['upload_mbps']} Mbps")
@@ -550,31 +567,44 @@ def main():
         elif args[1] == "settings":
             settings = load_settings()
             if len(args) == 2:
-                print("Current settings:")
+                cprint("Current settings:")
                 for k, v in settings.items():
-                    print(f"  {k}: {v}")
-            elif len(args) == 4 and args[2] == "set":
-                key, value = args[3].split("=")
-                if key in settings:
-                    if isinstance(settings[key], bool):
-                        settings[key] = value.lower() in ("1", "true", "yes", "on")
-                    elif isinstance(settings[key], int):
+                    cprint(f"  {k}: {v}")
+                cprint("\nUsage: localtest network settings set key=value")
+            elif len(args) >= 4 and args[2] == "set":
+                kv = " ".join(args[3:]).strip()
+                if "=" not in kv:
+                    cprint("Usage: localtest network settings set key=value")
+                    return
+                key, value = kv.split("=", 1)
+                settings = load_settings()
+                if key not in settings:
+                    cprint(f"Unknown setting: {key}")
+                    return
+                
+                default_type = type(DEFAULT_SETTINGS[key])
+                if default_type is bool:
+                    settings[key] = value.lower() in ("1", "true", "yes", "on")
+                elif default_type is int:
+                    try:
                         settings[key] = int(value)
-                    else:
-                        settings[key] = value
-                    save_settings(settings)
-                    print(f"Setting '{key}' updated to {settings[key]}.")
+                    except ValueError:
+                        cprint(f"Invalid value for {key}. Must be an integer.")
+                        return
                 else:
-                    print(f"Unknown setting: {key}")
+                    settings[key] = value
+
+                save_settings(settings)
+                cprint(f"Setting '{key}' updated to {settings[key]}.")
             else:
-                print("Usage:\n  localtest network settings\n  localtest network settings set threads_quick=4")
+                cprint("Usage:\n  localtest network settings\n  localtest network settings set threads_quick=4")
             return
         elif args[1] == "improve":
             apply_flag = ("-a" in args) or ("--apply" in args)
             improve_network(apply=apply_flag)
             return
         else:
-            print(f"Unknown network subcommand: {args[1]}")
+            cprint(f"Unknown network subcommand: {args[1]}")
             return
     
-    print(f"Unknown command: {args[0]}")
+    cprint(f"Unknown command: {args[0]}")
