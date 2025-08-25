@@ -9,6 +9,10 @@ import signal
 import subprocess
 import platform
 import re
+import urllib.request
+import importlib.metadata
+import json
+from packaging.version import parse as parse_version
 
 if os.name == "nt":
     import ctypes
@@ -24,6 +28,10 @@ SETTINGS_FILE = "network_settings.json"
 DEFAULT_SETTINGS = {
     "threads_quick": 2,
     "threads_full": 16,
+    "ping_test_host": "8.8.8.8",
+    "ping_count": 4,
+    "colors": True,
+    "reset_network_on_fail": True
 }
 
 active_stop_events = []
@@ -44,7 +52,7 @@ BANNER = r"""
 \/_/\ \  \/_/\ \                                                      
    \ \ \  __\ \ \                                                     
     \ \_\/\_\\ \_\                                                    
-     \/_/\/_/ \/_/                                                    
+     \/_/\/_/ \/_/                                                     
 
 """ # used https://www.asciiart.eu/text-to-ascii-art Larry 3D font
 
@@ -88,11 +96,28 @@ def save_history(history):
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r") as f:
-            return json.load(f)
+            try:
+                user_settings = json.load(f)
+            except json.JSONDecodeError:
+                print("[WARN] Corrupted settings file. Restoring defaults.")
+                user_settings = {}
+        
+        updated = False
+        for key, default_value in DEFAULT_SETTINGS.items():
+            if key not in user_settings:
+                user_settings[key] = default_value
+                updated = True
+
+        if updated:
+            save_settings(user_settings)
+        
+        return user_settings
+    
     save_settings(DEFAULT_SETTINGS)
     return DEFAULT_SETTINGS
 
 def save_settings(settings):
+    merged = {**DEFAULT_SETTINGS, **settings}
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=2)
 
@@ -423,13 +448,65 @@ def improve_network(apply=False):
     else:
         print("\nTo automatically try common fixes, re-run with the flag \033[1;33m-a\033[0m or \033[1;33m--apply\033[0m (you will be asked to confirm before any changes).")
 
+def check_latest_version(package="localtest"):
+    try:
+        url = f"https://pypi.org/pypi/{package}/json"
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.load(resp)
+        releases = list(data["releases"].keys())
+        # sort da versions :shocked: including PRERELEASES??!?!?!?!
+        from packaging.version import parse
+        latest_version = max(releases, key=parse)
+        return latest_version
+    except Exception as e:
+        print(f"[WARN] Could not fetch latest version from PyPI: {e}")
+        return None
+
+def get_installed_version(package="localtest"):
+    try:
+        return importlib.metadata.version(package)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+def update():
+    print("--- Checking for updates ---\n")
+    installed = get_installed_version("localtest")
+    latest = check_latest_version("localtest")
+
+    if not installed:
+        print("[ERROR] Localtest is not installed.")
+        return
+
+    print(f"Installed version: {installed}")
+    if latest:
+        print(f"Latest version on PyPI: {latest}")
+    else:
+        print("Could not determine the latest version.")
+        latest = installed
+
+    if parse_version(installed) > parse_version(latest):
+        print(f"\n[OK] You have a more advanced version than the latest public version ({latest}). No update needed.")
+        return
+
+    if parse_version(installed) == parse_version(latest):
+        print(f"\n[OK] You already have the latest version ({installed}). No update needed.")
+        return
+
+    print("\n--- Updating Localtest ---\n")
+    try:
+        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "localtest"]
+        subprocess.run(cmd, check=True)
+        print("\n[OK] Localtest updated successfully!")
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Update failed: {e}")
+
 def main():
     args = sys.argv[1:]
 
     if not args:
         show_banner()
         print("use \033[1;33mlocaltest help\033[0m to get started!")
-        return 
+        return
     elif args[0] == "help":
         if len(args) == 1:
             show_help()
@@ -443,6 +520,9 @@ def main():
         else:
             print(f"Unknown help subcommand: {args[1]}")
             return
+    elif args[0] == "update":
+        update()
+        return
     elif args[0] == "network":
         if len(args) == 1:
             show_network_header()
@@ -476,9 +556,14 @@ def main():
             elif len(args) == 4 and args[2] == "set":
                 key, value = args[3].split("=")
                 if key in settings:
-                    settings[key] = int(value)
+                    if isinstance(settings[key], bool):
+                        settings[key] = value.lower() in ("1", "true", "yes", "on")
+                    elif isinstance(settings[key], int):
+                        settings[key] = int(value)
+                    else:
+                        settings[key] = value
                     save_settings(settings)
-                    print(f"Setting '{key}' updated to {value}.")
+                    print(f"Setting '{key}' updated to {settings[key]}.")
                 else:
                     print(f"Unknown setting: {key}")
             else:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localtest
-Version: 1.1.0rc1
+Version: 1.1.0b2
 Summary: A home to locally running tests such as testing your network speeds!
 Author: Sabio Tang
 Requires-Python: >=3.8
