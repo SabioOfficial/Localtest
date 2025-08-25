@@ -63,12 +63,14 @@ COMMANDS_TEXT = """
     \033[90mrun\033[0m Runs the network scan. -fs is compatiable.
     \033[90mhistory\033[0m Shows the history of all your scans, locally.
     \033[90msettings\033[0m View or change settings for the Network tool.
+    \033[90mimprove\033[0m Running this command will improve your network speeds. -a is compatiable.
 """
 
 FLAGS_TEXT = """
 \033[1;36m>> FLAGS <<\033[0m
 
-\033[1;33m-fs\033[0m Fully and precisely use the current tool. Compatiable with: Network.
+\033[1;33m-fs\033[0m Fully and precisely use the current tool. Compatiable with: Network RUN.
+\033[1;33m-a\033[0m Apply. Compatiable with: Network IMPROVE.
 """
 
 HELP_TEXT = COMMANDS_TEXT + FLAGS_TEXT

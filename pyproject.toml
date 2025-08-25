@@ -4,8 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "localtest"
-version = "1.1.0"
+version = "1.1.0.post1"
 description = "A home to locally running tests such as testing your network speeds!"
+readme = "README.md"
 authors = [
     { name = "Sabio Tang" }
 ]
