@@ -1,7 +1,16 @@
 Metadata-Version: 2.4
 Name: localtest
-Version: 1.1.0
+Version: 1.1.0.post1
 Summary: A home to locally running tests such as testing your network speeds!
 Author: Sabio Tang
 Requires-Python: >=3.8
+Description-Content-Type: text/markdown
 Requires-Dist: speedtest-cli
+
+# Localtest
+
+A command line tool to test stuff locally! This currently includes: your network. Use the command ```localtest help``` to view all available commands in your current version. Localtest was built for Hack Club's Summer of Making.
+
+## Localtest Network
+
+Use ```localtest network run``` to start a Network test. If you have time on your hands, you should do ```localtest network run -fs``` for a full scan!
