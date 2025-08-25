@@ -126,74 +126,86 @@ def spinner(text, stop_event):
         time.sleep(0.1)
     sys.stdout.write("\r" + " " * (len(text) + 2) + "\r")
 
+# i leaked my ip in devlogs twice... this is why i'm masking ips
+def mask_ip(ip):
+    parts = ip.split(".")
+    if len(parts) == 4:
+        return ".".join(parts[:1] + ["xxx"])
+    return ".".join("x" * len(part) for part in parts)
+
 # runs speed test :shocked:
 def run_speed_test(full_scan=False):
     print(f"Starting {'full' if full_scan else 'quick'} network speed test...\n")
+    st = speedtest.Speedtest()
+    stop_event = threading.Event()
+    spinner_thread = threading.Thread(target=spinner, args=("Finding best server", stop_event))
+    spinner_thread.start()
 
     try:
-        stop_event = threading.Event()
-        thread = threading.Thread(target=spinner, args=("Finding best server", stop_event))
-        thread.start()
-
-        st = speedtest.Speedtest()
         st.get_best_server()
-
+    finally:
         stop_event.set()
-        thread.join()
+        spinner_thread.join()
 
-        settings = load_settings()
-        if full_scan:
-            print("Full scan is enabled!\n")
-            st.get_servers([])
-            st.get_best_server()
-            st._threads = settings.get("threads_full", 16)
-        else:
-            st._threads = settings.get("threads_quick", 2)
+    settings = load_settings()
+    st._threads = settings.get("threads_full" if full_scan else "threads_quick", 16 if full_scan else 2)
 
-        stop_download = threading.Event()
-        download_thread = threading.Thread(target=spinner, args=("Testing ↓ download speed", stop_download))
-        download_thread.start()
-        st.download()
-        stop_download.set()
-        download_thread.join()
+    download_result = [None]
+    stop_download = threading.Event()
+    def download_worker():
+        try:
+            download_result[0] = st.download()
+        finally:
+            stop_download.set()
 
-        stop_upload = threading.Event()
-        upload_thread = threading.Thread(target=spinner, args=("Testing ↑ upload speed", stop_upload))
-        upload_thread.start()
-        st.upload()
-        stop_upload.set()
-        upload_thread.join()
+    download_thread = threading.Thread(target=download_worker)
+    spinner_thread = threading.Thread(target=spinner, args=("Testing ↓ download speed", stop_download))
+    download_thread.start()
+    spinner_thread.start()
+    download_thread.join()
+    spinner_thread.join()
 
-        results = st.results.dict()
-        download_mbps = results['download'] / 1_000_000
-        upload_mbps = results['upload'] / 1_000_000
-        ping = results['ping']
-        isp = results.get('client', {}).get('isp', 'Unknown ISP')
+    upload_result = [None]
+    stop_upload = threading.Event()
+    def upload_worker():
+        try:
+            upload_result[0] = st.upload()
+        finally:
+            stop_upload.set()
 
-        print("\n\033[1;32m--- Speed Test Results ---\033[0m")
-        print(f"\033[1;33mISP:\033[0m {isp}")
-        print(f"\033[1;33mPing:\033[0m {ping:.2f} ms")
-        print(f"\033[1;33mDownload:\033[0m {download_mbps:.2f} Mbps")
-        print(f"\033[1;33mUpload:\033[0m {upload_mbps:.2f} Mbps\n")
+    upload_thread = threading.Thread(target=upload_worker)
+    spinner_thread = threading.Thread(target=spinner, args=("Testing ↑ upload speed", stop_upload))
+    upload_thread.start()
+    spinner_thread.start()
+    upload_thread.join()
+    spinner_thread.join()
 
-        entry = {
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "full_scan": full_scan,
-            "isp": isp,
-            "ping": round(ping, 2),
-            "download_mbps": round(download_mbps, 2),
-            "upload_mbps": round(upload_mbps, 2)
-        }
+    results = st.results.dict()
+    download_mbps = results['download'] / 1_000_000
+    upload_mbps = results['upload'] / 1_000_000
+    ping = results['ping']
+    isp = results.get('client', {}).get('isp', 'Unknown ISP')
 
-        history = load_history()
-        history.append(entry)
-        save_history(history)
+    print("\n\033[1;32m--- Speed Test Results ---\033[0m")
+    print(f"\033[1;33mISP:\033[0m {isp}")
+    print(f"\033[1;33mPing:\033[0m {ping:.2f} ms")
+    print(f"\033[1;33mDownload:\033[0m {download_mbps:.2f} Mbps")
+    print(f"\033[1;33mUpload:\033[0m {upload_mbps:.2f} Mbps\n")
 
-        return entry
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "full_scan": full_scan,
+        "isp": isp,
+        "ping": round(ping, 2),
+        "download_mbps": round(download_mbps, 2),
+        "upload_mbps": round(upload_mbps, 2)
+    }
 
-    except Exception as e:
-        print(f"Error during speed test: {e}")
-        return None
+    history = load_history()
+    history.append(entry)
+    save_history(history)
+
+    return entry
 
 def run_ping(host="8.8.8.8", count=4): # oh no google's going to googsteale your data
     os_name = platform.system().lower()
@@ -301,7 +313,8 @@ def build_suggestions(metrics):
 
     dns = metrics.get("dns_servers", [])
     if dns:
-        suggestions.append(f"Your DNS servers: {', '.join(dns)} - consider using reliable DNS providers like 1.1.1.1 (Cloudflare), 8.8.8.8 (Google) if you have DNS resolution issues.")
+        masked_dns = [mask_ip(d) for d in dns]
+        suggestions.append(f"Your DNS servers: {', '.join(masked_dns)} - consider using reliable DNS providers like 1.1.1.1 (Cloudflare), 8.8.8.8 (Google) if you have DNS resolution issues.")
     
     suggestions.append("Advanced: Make sure you update router firmware, ensure drivers for your network network adapter are up-to-date, consider changing QoS settings on your router, or try changing your router channel to reduce Wi-Fi interference.")
     suggestions.append("If multiple tests show consistent low throughput, contact your ISP and provide the speed test timestamps and results.")
@@ -341,6 +354,7 @@ def improve_network(apply=False):
     
     ping_results = run_ping()
     dns_servers = get_dns_servers()
+    masked_dns = [mask_ip(d) for d in dns_servers]
 
     metrics = {
         "download_mbps": baseline.get("download_mbps"),
@@ -348,7 +362,7 @@ def improve_network(apply=False):
         "ping": baseline.get("ping"),
         "isp": baseline.get("isp"),
         "packet_loss_percent": None,
-        "dns_servers": dns_servers
+        "dns_servers": masked_dns
     }
     if ping_results and "avg_ms" in ping_results:
         metrics["packet_loss_percent"] = ping_results.get("packet_loss_percent")
@@ -363,7 +377,7 @@ def improve_network(apply=False):
     if metrics.get("packet_loss_percent") is not None:
         print(f"Packet loss: {metrics.get('packet_loss_percent')}%")
     if dns_servers:
-        print(f"DNS servers: {', '.join(dns_servers)}")
+        print(f"DNS servers: {', '.join(masked_dns)}")
     else:
         print("DNS servers: Could not detect")
     
