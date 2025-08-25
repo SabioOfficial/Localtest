@@ -130,7 +130,7 @@ def spinner(text, stop_event):
 def mask_ip(ip):
     parts = ip.split(".")
     if len(parts) == 4:
-        return ".".join(parts[:1] + ["xxx"])
+        return ".".join(parts[:1] + ["x" * len(parts[1]), "x" * len(parts[2]), "x" * len(parts[3])])
     return ".".join("x" * len(part) for part in parts)
 
 # runs speed test :shocked:
